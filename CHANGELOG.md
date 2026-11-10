@@ -6,6 +6,8 @@ All notable changes to the Dopbase Node SDK are documented in this file.
 
 ### Added
 
+- The SDK is published on npm as `@dopbase/sdk`, which leaves the plain
+  `dopbase` name for the Dopbase binary.
 - `DopbaseSDK` loads the secrets of a runner token's environment from
   `GET /api/v1/runtime/secrets`. It reads `DOPBASE_HOST` (or the CLI's
   `DOPBASE_URL`) and `DOPBASE_TOKEN`, and `DOPBASE_ENV` checks that the token
@@ -29,16 +31,16 @@ All notable changes to the Dopbase Node SDK are documented in this file.
   Netlify, or your own `CacheStore`. Cold starts send its ETag, `ttl` serves
   it without a request, and network errors and 5xx fall back to it. Auth errors never do, and a copy that fails the
   schema or doesn't match `DOPBASE_ENV` is skipped.
-- `load({ inject: true })` and `node --import dopbase/register` fill
+- `load({ inject: true })` and `node --import @dopbase/sdk/register` fill
   `process.env`, skip reserved names, block code-loading names such as
   `NODE_OPTIONS` unless allowed, and remove `DOPBASE_TOKEN` afterwards. A
   `DopbaseSDK` created later in the same process still finds the token.
 - Builds for Node, Cloudflare Workers (bindings read through
   `cloudflare:workers`), Vercel Edge, Deno and Supabase, with `waitUntil`
   passed to `load()` or found on Supabase.
-- `dopbase/testing` with `TestDopbaseSDK` for app tests without a server,
+- `@dopbase/sdk/testing` with `TestDopbaseSDK` for app tests without a server,
   including jsdom and happy-dom test environments.
-- A README section on replacing dotenv with `dopbase/register` or
+- A README section on replacing dotenv with `@dopbase/sdk/register` or
   `load({ inject: true })`.
 - README: install commands for pnpm, yarn, bun and deno, an FAQ, and links to
   the Dopbase docs and the server repository. The package description and
