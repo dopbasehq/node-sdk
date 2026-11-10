@@ -40,3 +40,6 @@ All notable changes to the Dopbase Node SDK are documented in this file.
   including jsdom and happy-dom test environments.
 - A README section on replacing dotenv with `dopbase/register` or
   `load({ inject: true })`.
+- README: install commands for pnpm, yarn, bun and deno, an FAQ, and links to
+  the Dopbase docs and the server repository. The package description and
+  keywords now mention TypeScript and self-hosting.
