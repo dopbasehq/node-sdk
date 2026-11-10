@@ -1,7 +1,7 @@
 {
   "name": "dopbase",
   "version": "0.1.0",
-  "description": "Official Dopbase SDK. Load secrets and environment variables at runtime in Node.js, Bun, Deno, Cloudflare Workers, Vercel, Supabase Edge Functions and AWS Lambda.",
+  "description": "Load secrets and environment variables at runtime from Dopbase, the self-hosted secrets manager. Node.js, Bun, Deno, edge.",
   "license": "Apache-2.0",
   "author": "Dopbase <dev@dopbase.com> (https://dopbase.com)",
   "homepage": "https://dopbase.com",
@@ -14,10 +14,16 @@
   },
   "keywords": [
     "dopbase",
+    "sdk",
+    "typescript",
     "secrets",
     "secrets-manager",
     "secrets-management",
+    "secret-rotation",
+    "self-hosted",
+    "open-source",
     "environment-variables",
+    "env-vars",
     "env",
     "process-env",
     "dotenv",
@@ -33,7 +39,9 @@
     "nextjs",
     "supabase",
     "aws-lambda",
-    "netlify"
+    "netlify",
+    "edge-runtime",
+    "standard-schema"
   ],
   "type": "module",
   "engines": {
