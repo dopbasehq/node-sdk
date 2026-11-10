@@ -1,5 +1,5 @@
 {
-  "name": "dopbase",
+  "name": "@dopbase/sdk",
   "version": "0.1.0",
   "description": "Load secrets and environment variables at runtime from Dopbase, the self-hosted secrets manager. Node.js, Bun, Deno, edge.",
   "license": "Apache-2.0",
@@ -46,6 +46,9 @@
   "type": "module",
   "engines": {
     "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "files": [
     "dist",

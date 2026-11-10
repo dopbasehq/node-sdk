@@ -1,4 +1,4 @@
-import { DopbaseSDK } from 'dopbase';
+import { DopbaseSDK } from '@dopbase/sdk';
 
 const env = new DopbaseSDK({ fallback: false });
 

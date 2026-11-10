@@ -69,7 +69,7 @@ describe('load({ inject })', () => {
     }).load({ inject: true });
     expect(process.env.SDK_INJECT_A).toBe('1');
     expect(process.env.DOPBASE_TOKEN).toBeUndefined();
-    // Another SDK in the same process, as with `--import dopbase/register` plus one in the app.
+    // Another SDK in the same process, as with `--import @dopbase/sdk/register` plus one in the app.
     const later = await new DopbaseSDK({
       host: HOST,
       refresh: 'once',

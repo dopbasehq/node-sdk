@@ -5,7 +5,7 @@ type EnvGlobals = typeof globalThis & {
   Netlify?: { env?: { get(name: string): string | undefined } };
 };
 
-// On globalThis, not in module scope: `dopbase/register` bundles its own copy
+// On globalThis, not in module scope: `@dopbase/sdk/register` bundles its own copy
 // of this module, and the app's DopbaseSDK must still find what register took.
 const TAKEN = Symbol.for('dopbase.takenEnv');
 

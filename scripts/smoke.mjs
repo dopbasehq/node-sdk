@@ -58,9 +58,9 @@ function run(name, command, args) {
 
 await run('node-esm', 'node', ['scripts/smoke/check.mjs', 'node-esm']);
 await run('node-cjs', 'node', ['scripts/smoke/check.cjs']);
-await run('node --import dopbase/register', 'node', [
+await run('node --import @dopbase/sdk/register', 'node', [
   '--import',
-  'dopbase/register',
+  '@dopbase/sdk/register',
   '-e',
   "if (process.env.SMOKE !== 'ok' || process.env.DOPBASE_TOKEN) process.exit(1); console.log('OK')",
 ]);

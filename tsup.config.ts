@@ -16,7 +16,7 @@ const shared = {
 export default defineConfig([
   {
     ...shared,
-    // One build with shared chunks, so `dopbase` and `dopbase/testing` load the same
+    // One build with shared chunks, so `@dopbase/sdk` and `@dopbase/sdk/testing` load the same
     // DopbaseSDK and error classes in every runtime. Splitting is off for CJS by default.
     entry: {
       index: 'src/index.ts',
