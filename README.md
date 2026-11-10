@@ -1,8 +1,8 @@
 # Dopbase SDK for Node.js
 
-[![npm version](https://img.shields.io/npm/v/dopbase.svg)](https://www.npmjs.com/package/dopbase)
+[![npm version](https://img.shields.io/npm/v/@dopbase/sdk.svg)](https://www.npmjs.com/package/@dopbase/sdk)
 [![CI](https://github.com/dopbasehq/node-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/dopbasehq/node-sdk/actions/workflows/ci.yml)
-[![License](https://img.shields.io/npm/l/dopbase.svg)](https://github.com/dopbasehq/node-sdk/blob/main/LICENSE)
+[![License](https://img.shields.io/npm/l/@dopbase/sdk.svg)](https://github.com/dopbasehq/node-sdk/blob/main/LICENSE)
 
 Load secrets and environment variables at runtime in Node.js, Bun, Deno,
 serverless and edge apps. Written in TypeScript, with no runtime dependencies.
@@ -22,16 +22,16 @@ CommonJS builds with TypeScript types.
 ## Install
 
 ```bash
-npm install dopbase
+npm install @dopbase/sdk
 ```
 
 Or with another package manager:
 
 ```bash
-pnpm add dopbase
-yarn add dopbase
-bun add dopbase
-deno add npm:dopbase
+pnpm add @dopbase/sdk
+yarn add @dopbase/sdk
+bun add @dopbase/sdk
+deno add npm:@dopbase/sdk
 ```
 
 ## Quick start
@@ -47,7 +47,7 @@ DOPBASE_TOKEN=dbs_...
 ```
 
 ```ts
-import { DopbaseSDK } from "dopbase";
+import { DopbaseSDK } from "@dopbase/sdk";
 
 const env = new DopbaseSDK();
 await env.load();
@@ -64,7 +64,7 @@ it again is cheap.
 Pass any Standard Schema (zod, valibot, arktype) to check and type the values:
 
 ```ts
-import { DopbaseSDK } from "dopbase";
+import { DopbaseSDK } from "@dopbase/sdk";
 import { z } from "zod";
 
 const env = new DopbaseSDK({
@@ -108,7 +108,7 @@ Or do it without touching the code. `--import` runs a module before the app's
 entry file, like `node -r dotenv/config`:
 
 ```bash
-node --import dopbase/register server.js
+node --import @dopbase/sdk/register server.js
 ```
 
 If the secrets can't be loaded, the app doesn't start.
@@ -120,7 +120,7 @@ with `DOPBASE_`, `XDG_` or `LC_`. Names that make a program load extra code
 skipped with a warning unless you list them in `allow`. After loading,
 `DOPBASE_TOKEN` is removed from `process.env`, so child processes and libraries
 can't read it. Another `DopbaseSDK` in the same process still finds it, so an
-app started with `dopbase/register` can create its own.
+app started with `@dopbase/sdk/register` can create its own.
 
 | Inject option     | Effect                                     |
 | ----------------- | ------------------------------------------ |
@@ -139,7 +139,7 @@ one line:
 
 | dotenv                            | dopbase                                         |
 | --------------------------------- | ----------------------------------------------- |
-| `node -r dotenv/config server.js` | `node --import dopbase/register server.js`      |
+| `node -r dotenv/config server.js` | `node --import @dopbase/sdk/register server.js` |
 | `import 'dotenv/config'`          | `await new DopbaseSDK().load({ inject: true })` |
 | A `.env` file next to the app     | `DOPBASE_HOST` and `DOPBASE_TOKEN`              |
 
@@ -234,7 +234,7 @@ Put `DOPBASE_HOST` in `[vars]` and the token in a secret
 `cloudflare:workers`, so `nodejs_compat` isn't needed.
 
 ```ts
-import { DopbaseSDK } from "dopbase";
+import { DopbaseSDK } from "@dopbase/sdk";
 
 const env = new DopbaseSDK();
 
@@ -255,7 +255,7 @@ subdomains, so there each cold isolate fetches once.
 
 ```ts
 // app/api/flags/route.ts, proxy.ts, or a Vercel Function
-import { DopbaseSDK } from "dopbase";
+import { DopbaseSDK } from "@dopbase/sdk";
 import { waitUntil } from "@vercel/functions";
 
 const env = new DopbaseSDK();
@@ -272,7 +272,7 @@ To fill `process.env` for the whole Next.js server, load in
 ```ts
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
-    const { DopbaseSDK } = await import("dopbase");
+    const { DopbaseSDK } = await import("@dopbase/sdk");
     await new DopbaseSDK({ refresh: "once" }).load({ inject: true });
   }
 }
@@ -289,7 +289,7 @@ supabase secrets set DOPBASE_HOST=acme.dopbase.dev DOPBASE_TOKEN=dbs_...
 ```
 
 ```ts
-import { DopbaseSDK } from "npm:dopbase@0.1";
+import { DopbaseSDK } from "npm:@dopbase/sdk@0.1";
 
 const env = new DopbaseSDK();
 
@@ -307,7 +307,7 @@ instances aren't stopped after each request.
 ### AWS Lambda
 
 ```ts
-import { DopbaseSDK } from "dopbase";
+import { DopbaseSDK } from "@dopbase/sdk";
 
 const env = new DopbaseSDK();
 
@@ -323,7 +323,7 @@ passed the next `load()` waits for the check, which is usually a 304.
 ### Express, Fastify, NestJS
 
 ```ts
-import { DopbaseSDK } from "dopbase";
+import { DopbaseSDK } from "@dopbase/sdk";
 
 const env = await new DopbaseSDK().load();
 const app = express();
@@ -377,11 +377,11 @@ The server side is described in the
 
 ## Testing your app
 
-`dopbase/testing` serves values from memory through the real response handling,
+`@dopbase/sdk/testing` serves values from memory through the real response handling,
 schema and change events:
 
 ```ts
-import { TestDopbaseSDK } from "dopbase/testing";
+import { TestDopbaseSDK } from "@dopbase/sdk/testing";
 
 const env = await new TestDopbaseSDK({ values: { FLAG: "off" } }).load();
 await env.set({ FLAG: "on" }); // onChange listeners run before this resolves
@@ -400,7 +400,7 @@ await env.set({ FLAG: "on" }); // onChange listeners run before this resolves
 ### Can Dopbase replace dotenv?
 
 Yes, for any app that can reach your Dopbase server.
-`node --import dopbase/register server.js` fills `process.env` the way
+`node --import @dopbase/sdk/register server.js` fills `process.env` the way
 `dotenv/config` does. The values come from the server at startup, and no `.env`
 file is deployed with the app.
 
