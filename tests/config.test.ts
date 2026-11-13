@@ -22,6 +22,7 @@ describe('normalizeHost', () => {
     ['acme.dopbase.dev', 'https://acme.dopbase.dev'],
     ['https://acme.dopbase.dev/', 'https://acme.dopbase.dev'],
     ['https://example.com/dopbase/', 'https://example.com/dopbase'],
+    ['https://example.com/dopbase///', 'https://example.com/dopbase'],
     ['https://acme.dopbase.dev:8443', 'https://acme.dopbase.dev:8443'],
     ['http://localhost:8080', 'http://localhost:8080'],
     ['http://127.0.0.1:8080', 'http://127.0.0.1:8080'],
