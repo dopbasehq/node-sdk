@@ -2,9 +2,7 @@
 
 All notable changes to the Dopbase Node SDK are documented in this file.
 
-## Unreleased
-
-## 0.1.0 - 2026-11-10
+## 0.1.0 - 2026-11-13
 
 First release, published on npm as `@dopbase/sdk`. It loads an environment's
 secrets from a Dopbase server at runtime on Node, Bun, Deno, Cloudflare
