@@ -1,0 +1,135 @@
+{
+  "name": "@dopbase/sdk",
+  "version": "0.1.0",
+  "description": "Load secrets and environment variables at runtime from Dopbase, the self-hosted secrets manager. Node.js, Bun, Deno, edge.",
+  "license": "Apache-2.0",
+  "author": "Dopbase <dev@dopbase.com> (https://dopbase.com)",
+  "homepage": "https://dopbase.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dopbasehq/node-sdk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dopbasehq/node-sdk/issues"
+  },
+  "keywords": [
+    "dopbase",
+    "sdk",
+    "typescript",
+    "secrets",
+    "secrets-manager",
+    "secrets-management",
+    "secret-rotation",
+    "self-hosted",
+    "open-source",
+    "environment-variables",
+    "env-vars",
+    "env",
+    "process-env",
+    "dotenv",
+    "dotenv-alternative",
+    "config",
+    "nodejs",
+    "bun",
+    "deno",
+    "serverless",
+    "edge",
+    "cloudflare-workers",
+    "vercel",
+    "nextjs",
+    "supabase",
+    "aws-lambda",
+    "netlify",
+    "edge-runtime",
+    "standard-schema"
+  ],
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "main": "./dist/node.cjs",
+  "module": "./dist/node.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "workerd": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/workerd.js"
+      },
+      "edge-light": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "deno": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "node": {
+        "import": {
+          "types": "./dist/index.d.ts",
+          "default": "./dist/node.js"
+        },
+        "require": {
+          "types": "./dist/index.d.cts",
+          "default": "./dist/node.cjs"
+        }
+      },
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./register": {
+      "import": {
+        "types": "./dist/register.d.ts",
+        "default": "./dist/register.js"
+      },
+      "require": "./dist/register.cjs"
+    },
+    "./testing": {
+      "import": {
+        "types": "./dist/testing.d.ts",
+        "default": "./dist/testing.js"
+      },
+      "require": {
+        "types": "./dist/testing.d.cts",
+        "default": "./dist/testing.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsup && node scripts/check-edge.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:runtimes": "node scripts/smoke.mjs",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.4",
+    "@edge-runtime/vm": "^5.0.0",
+    "@types/node": "^24.0.0",
+    "esbuild": "^0.28.2",
+    "miniflare": "^4.20260730.0",
+    "tsup": "^9.0.0",
+    "typescript": "~6.0.3",
+    "vitest": "^5.1.0",
+    "zod": "^4.0.0"
+  }
+}
