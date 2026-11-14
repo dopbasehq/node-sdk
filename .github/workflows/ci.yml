@@ -22,7 +22,8 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run lint
       - run: npm run typecheck
-      - run: npm test
+      # Fails if coverage drops below the thresholds in vitest.config.ts.
+      - run: npm run test:coverage
       - run: npm run build
 
   runtimes:
