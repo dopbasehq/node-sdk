@@ -2,6 +2,9 @@
 
 [![npm version](https://img.shields.io/npm/v/@dopbase/sdk.svg)](https://www.npmjs.com/package/@dopbase/sdk)
 [![CI](https://github.com/dopbasehq/node-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/dopbasehq/node-sdk/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/dopbasehq/node-sdk/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/dopbasehq/node-sdk/actions/workflows/github-code-scanning/codeql)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=dopbasehq_node-sdk&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=dopbasehq_node-sdk)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=dopbasehq_node-sdk&metric=coverage)](https://sonarcloud.io/summary/new_code?id=dopbasehq_node-sdk)
 [![License](https://img.shields.io/npm/l/@dopbase/sdk.svg)](https://github.com/dopbasehq/node-sdk/blob/main/LICENSE)
 
 Load secrets and environment variables at runtime in Node.js, Bun, Deno,
