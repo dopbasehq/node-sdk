@@ -8,6 +8,7 @@ import {
   DopbaseUnsupportedServerError,
   DopbaseValidationError,
   isAvailabilityError,
+  withoutFrames,
 } from './errors';
 import { type RuntimeSnapshot, validateSnapshot } from './validate';
 
@@ -77,16 +78,20 @@ export class RuntimeApi {
     } catch (error) {
       if (timeout.aborted) {
         throw new DopbaseNetworkError(
-          `Dopbase at ${baseUrl} didn't answer within ${timeoutMs} ms.`,
-          {
-            code: 'TIMEOUT',
-            cause: error,
-          },
+          `Dopbase at ${baseUrl} didn't answer within ${timeoutMs} ms.\nCheck that DOPBASE_HOST is right, or raise \`timeout\`.`,
+          { code: 'TIMEOUT', cause: reasonOf(error) },
         );
       }
-      throw new DopbaseNetworkError(`Couldn't reach Dopbase at ${baseUrl}.`, {
-        code: signal?.aborted ? 'ABORTED' : 'NETWORK_ERROR',
-        cause: error,
+      if (signal?.aborted) {
+        throw new DopbaseNetworkError(`The request to Dopbase at ${baseUrl} was cancelled.`, {
+          code: 'ABORTED',
+          cause: reasonOf(error),
+        });
+      }
+      const reason = reasonOf(error);
+      throw new DopbaseNetworkError(describeFailure(reason, baseUrl), {
+        code: networkCode(reason),
+        cause: reason,
       });
     }
 
@@ -124,6 +129,95 @@ export class RuntimeApi {
       snapshot: validateSnapshot(data, requestId),
       ...withId(requestId),
     };
+  }
+}
+
+const TLS_CODES = new Set([
+  'CERT_HAS_EXPIRED',
+  'CERT_NOT_YET_VALID',
+  'DEPTH_ZERO_SELF_SIGNED_CERT',
+  'ERR_TLS_CERT_ALTNAME_INVALID',
+  'SELF_SIGNED_CERT_IN_CHAIN',
+  'UNABLE_TO_GET_ISSUER_CERT',
+  'UNABLE_TO_GET_ISSUER_CERT_LOCALLY',
+  'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
+  'UNKNOWN_CERTIFICATE_VERIFICATION_ERROR',
+]);
+// Node's codes, then Bun's.
+const REFUSED_CODES = new Set(['ECONNREFUSED', 'ConnectionRefused']);
+const DNS_CODES = new Set(['ENOTFOUND', 'EAI_AGAIN']);
+const RESET_CODES = new Set(['ECONNRESET', 'EPIPE', 'ConnectionClosed']);
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+type Reason = Error & { code?: string };
+
+/**
+ * What actually went wrong under a failed fetch, as a small error with no
+ * stack. Node hides it in `cause` (sometimes two levels down, as an
+ * AggregateError); Bun puts the code on the error itself. Its frames would
+ * only point into fetch internals, so they're dropped.
+ */
+function reasonOf(error: unknown): Reason {
+  let deepest: unknown = error;
+  for (let current = error, depth = 0; current && depth < 5; depth++) {
+    deepest = current;
+    const { code } = current as { code?: unknown };
+    if (typeof code === 'string' && code !== '') return copy(current, code);
+    current = (current as { cause?: unknown }).cause;
+  }
+  return copy(deepest, undefined);
+}
+
+function copy(error: unknown, code: string | undefined): Reason {
+  const { message, name } = (typeof error === 'object' && error !== null ? error : {}) as {
+    message?: unknown;
+    name?: unknown;
+  };
+  const text = typeof message === 'string' ? message : String(error);
+  const reason: Reason = withoutFrames(new Error(text || code || 'fetch failed'));
+  // Keep TypeError, AggregateError, TimeoutError: code that checks the cause's name still works.
+  if (typeof name === 'string' && name !== '' && name !== 'Error') reason.name = name;
+  if (code) reason.code = code;
+  return reason;
+}
+
+// Deno (and so Supabase) sets no code on fetch errors; its messages are the only signal.
+const MESSAGE_PATTERNS: [RegExp, string][] = [
+  [/certificate/i, 'TLS_ERROR'],
+  [/connection refused/i, 'CONNECTION_REFUSED'],
+  [/dns error|failed to lookup address|name or service not known/i, 'DNS_ERROR'],
+  [/connection reset/i, 'CONNECTION_RESET'],
+];
+
+function networkCode(reason: Reason): string {
+  const { code } = reason;
+  if (code) {
+    if (TLS_CODES.has(code)) return 'TLS_ERROR';
+    if (REFUSED_CODES.has(code)) return 'CONNECTION_REFUSED';
+    if (DNS_CODES.has(code)) return 'DNS_ERROR';
+    if (RESET_CODES.has(code)) return 'CONNECTION_RESET';
+    return 'NETWORK_ERROR';
+  }
+  return MESSAGE_PATTERNS.find(([pattern]) => pattern.test(reason.message))?.[1] ?? 'NETWORK_ERROR';
+}
+
+/** First line: what happened. Second line, when there's one: what to do about it. */
+function describeFailure(reason: Reason, baseUrl: string): string {
+  const url = new URL(baseUrl);
+  const detail = reason.code ? ` (${reason.code})` : '';
+  switch (networkCode(reason)) {
+    case 'TLS_ERROR':
+      return LOCAL_HOSTS.has(url.hostname)
+        ? `Couldn't verify the TLS certificate of ${baseUrl}${detail}.\nFor local development, use http://${url.host}, or trust the certificate with NODE_EXTRA_CA_CERTS.`
+        : `Couldn't verify the TLS certificate of ${baseUrl}${detail}.\nCheck the server's certificate, or trust its CA with NODE_EXTRA_CA_CERTS.`;
+    case 'CONNECTION_REFUSED':
+      return `Nothing is answering at ${baseUrl}.\nCheck that the Dopbase server is running and that DOPBASE_HOST is right.`;
+    case 'DNS_ERROR':
+      return `Couldn't find the host ${url.hostname}${detail}.\nCheck DOPBASE_HOST.`;
+    case 'CONNECTION_RESET':
+      return `Dopbase at ${baseUrl} closed the connection before answering${detail}.`;
+    default:
+      return `Couldn't reach Dopbase at ${baseUrl}: ${reason.message}`;
   }
 }
 
