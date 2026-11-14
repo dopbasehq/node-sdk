@@ -52,6 +52,13 @@ jobs:
       - name: Install dependencies
         run: npm ci --ignore-scripts
 
+      # Writes coverage/lcov.info for the scan. A test failure or a drop below
+      # the coverage thresholds is CI's job to report, so it doesn't stop the
+      # scan here.
+      - name: Run tests with coverage
+        run: npm run test:coverage
+        continue-on-error: true
+
       - name: Scan
         uses: SonarSource/sonarqube-scan-action@e805d875275f728fac1885b413934be6d7c63f65 # v8.4.1
         env:
