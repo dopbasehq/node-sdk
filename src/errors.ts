@@ -12,14 +12,16 @@ export interface DopbaseErrorDetails {
 export class DopbaseError extends Error {
   override name = 'DopbaseError';
   readonly code: string;
-  readonly status: number | undefined;
-  readonly requestId: string | undefined;
+  // Declared, not initialized: set only when there's a value, so a printed
+  // error doesn't show `status: undefined`.
+  declare readonly status?: number;
+  declare readonly requestId?: string;
 
   constructor(message: string, details: DopbaseErrorDetails) {
     super(message, details.cause === undefined ? undefined : { cause: details.cause });
     this.code = details.code;
-    this.status = details.status;
-    this.requestId = details.requestId;
+    if (details.status !== undefined) this.status = details.status;
+    if (details.requestId !== undefined) this.requestId = details.requestId;
   }
 }
 
@@ -60,11 +62,15 @@ export interface DopbaseIssue {
 /** The response, or the values checked against `schema`, didn't pass validation. */
 export class DopbaseValidationError extends DopbaseError {
   override name = 'DopbaseValidationError';
-  readonly issues: readonly DopbaseIssue[];
+  declare readonly issues: readonly DopbaseIssue[];
 
   constructor(message: string, issues: DopbaseIssue[], details: Partial<DopbaseErrorDetails> = {}) {
     super(message, { code: 'VALIDATION_FAILED', ...details });
-    this.issues = issues;
+    // Not enumerable: the message already lists the issues, so a printed error shows them once.
+    Object.defineProperty(this, 'issues', {
+      value: Object.freeze([...issues]),
+      enumerable: false,
+    });
   }
 }
 
@@ -81,4 +87,32 @@ export function isAvailabilityError(error: unknown): boolean {
 /** Errors that mean the token must stop pulling secrets. */
 export function isAccessError(error: unknown): boolean {
   return error instanceof DopbaseAuthError || error instanceof DopbaseScopeError;
+}
+
+/** A function or class the app called; frames from it inward are dropped from the stack. */
+export type Caller = ((...args: never[]) => unknown) | (abstract new (...args: never[]) => unknown);
+
+// V8 (Node, Deno, Workers, Vercel Edge) and Bun have both. Elsewhere the helpers below do nothing.
+const ErrorStatics = Error as unknown as {
+  captureStackTrace?: (target: object, caller?: Caller) => void;
+};
+
+/**
+ * Restarts the stack at the app's call into `caller`. Node and Bun print the
+ * source line of the first frame above an uncaught error, so this makes them
+ * show the app's own line instead of SDK internals.
+ */
+export function fromCaller<E>(error: E, caller: Caller): E {
+  if (error instanceof DopbaseError) ErrorStatics.captureStackTrace?.(error, caller);
+  return error;
+}
+
+// Never on the stack, so capturing "from" it leaves no frames. Bun ignores
+// Error.stackTraceLimit inside captureStackTrace, so lowering that isn't enough.
+function offStack(): void {}
+
+/** Drops every stack frame. For errors with no app call to point at. */
+export function withoutFrames<E extends Error>(error: E): E {
+  ErrorStatics.captureStackTrace?.(error, offStack);
+  return error;
 }

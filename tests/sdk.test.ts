@@ -121,12 +121,124 @@ describe('schema', () => {
   });
 
   it('rejects the first load with key names, never values', async () => {
-    const env = create(fakeRuntime({ DATABASE_URL: 'not a url but a secret' }), { schema });
+    const env = create(fakeRuntime({ DATABASE_URL: 'not a url but a secret', PORT: 'eighty' }), {
+      schema,
+    });
     const error = await env.load().catch((e) => e);
     expect(error).toBeInstanceOf(DopbaseValidationError);
     expect(error.code).toBe('SCHEMA_INVALID');
-    expect(error.issues).toEqual([expect.objectContaining({ key: 'DATABASE_URL' })]);
+    expect(error.issues).toEqual([
+      expect.objectContaining({ key: 'DATABASE_URL' }),
+      expect.objectContaining({ key: 'PORT' }),
+    ]);
+    expect(error.message.split('\n')).toEqual([
+      `2 secrets in "production" don't match your schema:`,
+      expect.stringMatching(/^ {2}- DATABASE_URL: \S/),
+      expect.stringMatching(/^ {2}- PORT: \S/),
+      'Fix them in Dopbase, or change the schema.',
+    ]);
     expect(error.message).not.toContain('not a url but a secret');
+    expect(error.message).not.toContain('eighty');
+  });
+
+  it('words a single failing key in the singular', async () => {
+    const env = create(fakeRuntime({ DATABASE_URL: 'nope' }), { schema });
+    const error = await env.load().catch((e) => e);
+    expect(error.message).toMatch(/^1 secret in "production" doesn't match your schema:\n/);
+    expect(error.message).toMatch(/\nFix it in Dopbase, or change the schema\.$/);
+  });
+});
+
+describe('errors the app sees', () => {
+  // Frames inside the SDK. Node and Bun print the source of the first frame
+  // above an uncaught error, so none may come before the app's own.
+  const sdkFrames = (error: Error) =>
+    (error.stack ?? '').split('\n').filter((line) => /\/src\/[\w/-]+\.ts/.test(line));
+
+  it('start the stack at the app call to load() and refresh()', async () => {
+    const runtime = fakeRuntime({ PORT: 'eighty' });
+    const env = create(runtime, { schema: z.object({ PORT: z.coerce.number() }) });
+    const loadError = await env.load().catch((e) => e);
+    expect(loadError.code).toBe('SCHEMA_INVALID');
+    expect(sdkFrames(loadError)).toEqual([]);
+    expect(loadError.stack).toContain('sdk.test.ts');
+
+    runtime.unreachable();
+    const refreshError = await env.refresh().catch((e) => e);
+    expect(refreshError).toBeInstanceOf(DopbaseNetworkError);
+    expect(sdkFrames(refreshError)).toEqual([]);
+  });
+
+  it('start the stack at the app call for synchronous methods', async () => {
+    const env = create(fakeRuntime({ A: '1' }));
+    for (const call of [
+      () => env.get('A'),
+      () => env.has('A'),
+      () => env.getAll(),
+      () => env.onChange(undefined as never),
+    ]) {
+      const error = (() => {
+        try {
+          call();
+        } catch (thrown) {
+          return thrown as Error;
+        }
+        throw new Error('expected a throw');
+      })();
+      expect(sdkFrames(error)).toEqual([]);
+      expect(error.stack).toContain('sdk.test.ts');
+    }
+
+    await env.load();
+    const missing = (() => {
+      try {
+        env.require('B');
+      } catch (thrown) {
+        return thrown as Error;
+      }
+    })()!;
+    expect(missing.message).toBe('B isn\'t set in "production".');
+    expect(sdkFrames(missing)).toEqual([]);
+  });
+
+  it('start the stack at new DopbaseSDK() for a bad option', () => {
+    const error = (() => {
+      try {
+        new DopbaseSDK({ host: 'http://acme.dopbase.dev', token: TOKEN });
+      } catch (thrown) {
+        return thrown as Error;
+      }
+    })()!;
+    expect(error).toBeInstanceOf(DopbaseConfigError);
+    expect(sdkFrames(error)).toEqual([]);
+    expect(error.stack).toContain('sdk.test.ts');
+  });
+
+  it('print without empty fields or a second copy of the issues', async () => {
+    const env = create(fakeRuntime({ PORT: 'eighty' }), {
+      schema: z.object({ PORT: z.coerce.number() }),
+    });
+    const error = await env.load().catch((e) => e);
+    expect(Object.keys(error)).toEqual(['name', 'code']);
+    const printed = inspect(error);
+    expect(printed).not.toContain('status');
+    expect(printed).not.toContain('requestId');
+    expect(printed).not.toContain('issues');
+    expect(error.issues).toHaveLength(1);
+    expect(Object.isFrozen(error.issues)).toBe(true);
+  });
+
+  it('keep status and requestId when the server answered', async () => {
+    const runtime = fakeRuntime();
+    runtime.fail(401, 'AUTHENTICATION_INVALID');
+    const error = await create(runtime)
+      .load()
+      .catch((e) => e);
+    expect(error).toMatchObject({
+      code: 'AUTHENTICATION_INVALID',
+      status: 401,
+      requestId: 'req-err',
+    });
   });
 });
 
@@ -174,6 +286,8 @@ describe('poll', () => {
     runtime.fail(401, 'AUTHENTICATION_INVALID');
     await vi.advanceTimersByTimeAsync(18_000);
     expect(errors[0]).toBeInstanceOf(DopbaseAuthError);
+    // No app call led here, and the SDK's own frames would mean nothing to the app.
+    expect(errors[0]!.stack).not.toMatch(/\n\s+at /);
     expect(env.snapshot()!.stale).toBe(true);
     expect(env.get('A')).toBe('1');
 

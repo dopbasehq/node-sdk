@@ -1,4 +1,5 @@
 import type { DopbaseOptions } from './config';
+import { fromCaller } from './errors';
 import { DopbaseSDK } from './sdk';
 
 export interface TestDopbaseOptions<T> extends Pick<DopbaseOptions<T>, 'schema' | 'defaults'> {
@@ -43,7 +44,11 @@ export class TestDopbaseSDK<
   async set(values: Record<string, string>): Promise<void> {
     this.#server.values = { ...values };
     this.#server.revision++;
-    if (this.snapshot()) await this.refresh();
+    try {
+      if (this.snapshot()) await this.refresh();
+    } catch (error) {
+      throw fromCaller(error, TestDopbaseSDK.prototype.set);
+    }
   }
 }
 
