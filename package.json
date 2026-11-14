@@ -120,12 +120,14 @@
     "test:runtimes": "node scripts/smoke.mjs",
     "lint": "biome check .",
     "format": "biome format --write .",
-    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+    "prepublishOnly": "npm run typecheck && npm test && npm run build",
+    "test:coverage": "vitest run --coverage"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.4",
     "@edge-runtime/vm": "^5.0.0",
     "@types/node": "^24.0.0",
+    "@vitest/coverage-v8": "^5.1.0",
     "esbuild": "^0.28.2",
     "miniflare": "^4.20260730.0",
     "tsup": "^9.0.0",
