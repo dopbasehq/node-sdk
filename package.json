@@ -1,6 +1,6 @@
 {
   "name": "@dopbase/sdk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Load secrets and environment variables at runtime from Dopbase, the self-hosted secrets manager. Node.js, Bun, Deno, edge.",
   "license": "Apache-2.0",
   "author": "Dopbase <dev@dopbase.com> (https://dopbase.com)",
@@ -54,7 +54,8 @@
     "dist",
     "README.md",
     "CHANGELOG.md",
-    "LICENSE"
+    "LICENSE",
+    "NOTICE"
   ],
   "main": "./dist/node.cjs",
   "module": "./dist/node.js",
@@ -112,7 +113,7 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsup && node scripts/check-edge.mjs",
+    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsup && node scripts/check-edge.mjs && node scripts/check-dist.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",

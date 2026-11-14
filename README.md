@@ -359,6 +359,23 @@ env.snapshot();
 Every error extends `DopbaseError` and has a `code`, and, when it came from a
 response, a `status` and the server's `requestId`.
 
+A `DopbaseNetworkError` says why the request failed in its `code`. All of them
+except `ABORTED` are retried and can fall back to the stored copy.
+
+| `code`               | Meaning                                                                     |
+| -------------------- | --------------------------------------------------------------------------- |
+| `TLS_ERROR`          | The server's certificate isn't trusted, has expired, or is for another host |
+| `CONNECTION_REFUSED` | Nothing is listening at `DOPBASE_HOST`                                      |
+| `DNS_ERROR`          | The host name doesn't resolve                                               |
+| `CONNECTION_RESET`   | The connection closed before the server answered                            |
+| `TIMEOUT`            | No answer within `timeout`                                                  |
+| `ABORTED`            | The SDK was closed while the request was running                            |
+| `NETWORK_ERROR`      | Anything else. The message includes the runtime's reason                    |
+
+For a local server with a self-signed certificate, use `http://localhost:<port>`
+(plain HTTP is allowed for localhost), or trust the certificate with
+`NODE_EXTRA_CA_CERTS`.
+
 ## Security
 
 - Error messages, logs, `JSON.stringify`, `String()` and `console.log` never

@@ -2,12 +2,15 @@ import { type DopbaseOptions, REDACTED_TOKEN, type ResolvedConfig, resolveConfig
 import { type CacheKeys, deriveCacheKeys } from './crypto';
 import { MAX_TIMER_MS } from './duration';
 import {
+  type Caller,
   DopbaseConfigError,
   DopbaseError,
   type DopbaseIssue,
   DopbaseValidationError,
+  fromCaller,
   isAccessError,
   isAvailabilityError,
+  withoutFrames,
 } from './errors';
 import { type InjectOptions, inject, processEnv } from './inject';
 import { detectPlatform, type PlatformInfo } from './platform/detect';
@@ -110,36 +113,42 @@ export class DopbaseSDK<T extends Record<string, unknown> = Values> {
   #sync: InjectOptions | undefined;
 
   constructor(options: DopbaseOptions<T> = {}) {
-    this.#platform = detectPlatform();
-    if (this.#platform.name === 'browser') {
-      throw new DopbaseConfigError(
-        'The Dopbase SDK runs on servers and edge functions only. A runner token must never reach a browser.',
-        'BROWSER_UNSUPPORTED',
+    try {
+      this.#platform = detectPlatform();
+      if (this.#platform.name === 'browser') {
+        throw new DopbaseConfigError(
+          'The Dopbase SDK runs on servers and edge functions only. A runner token must never reach a browser.',
+          'BROWSER_UNSUPPORTED',
+        );
+      }
+      this.#config = resolveConfig(options, this.#platform);
+      this.#schema = options.schema;
+      this.#defaults = options.defaults ? Object.freeze({ ...options.defaults }) : undefined;
+      this.#store = this.#pickStore(options.fallback);
+
+      const logger = options.logger;
+      const debugEnabled = /(^|,)\s*(dopbase|dopbase:\*|\*)\s*(,|$)/.test(readEnv('DEBUG') ?? '');
+      this.#debug = (message) =>
+        logger?.debug
+          ? logger.debug(message)
+          : debugEnabled && console.debug(`[dopbase] ${message}`);
+      this.#warn = (message) =>
+        logger?.warn ? logger.warn(message) : console.warn(`[dopbase] ${message}`);
+
+      const apiOptions = {
+        endpoint: this.#config.endpoint,
+        baseUrl: this.#config.baseUrl,
+        token: this.#config.token,
+        timeoutMs: this.#config.timeoutMs,
+        retries: this.#config.retries,
+        userAgent: `dopbase-node/${__VERSION__} ${this.#platform.runtime}`,
+      };
+      this.#api = new RuntimeApi(
+        options.fetch ? { ...apiOptions, fetch: options.fetch } : apiOptions,
       );
+    } catch (error) {
+      throw fromCaller(error, new.target);
     }
-    this.#config = resolveConfig(options, this.#platform);
-    this.#schema = options.schema;
-    this.#defaults = options.defaults ? Object.freeze({ ...options.defaults }) : undefined;
-    this.#store = this.#pickStore(options.fallback);
-
-    const logger = options.logger;
-    const debugEnabled = /(^|,)\s*(dopbase|dopbase:\*|\*)\s*(,|$)/.test(readEnv('DEBUG') ?? '');
-    this.#debug = (message) =>
-      logger?.debug ? logger.debug(message) : debugEnabled && console.debug(`[dopbase] ${message}`);
-    this.#warn = (message) =>
-      logger?.warn ? logger.warn(message) : console.warn(`[dopbase] ${message}`);
-
-    const apiOptions = {
-      endpoint: this.#config.endpoint,
-      baseUrl: this.#config.baseUrl,
-      token: this.#config.token,
-      timeoutMs: this.#config.timeoutMs,
-      retries: this.#config.retries,
-      userAgent: `dopbase-node/${__VERSION__} ${this.#platform.runtime}`,
-    };
-    this.#api = new RuntimeApi(
-      options.fetch ? { ...apiOptions, fetch: options.fetch } : apiOptions,
-    );
   }
 
   /**
@@ -148,6 +157,23 @@ export class DopbaseSDK<T extends Record<string, unknown> = Values> {
    * due for a check. Resolves to the SDK itself.
    */
   async load(options: LoadOptions = {}): Promise<this> {
+    try {
+      return await this.#load(options);
+    } catch (error) {
+      throw fromCaller(error, DopbaseSDK.prototype.load);
+    }
+  }
+
+  /** Checks with the server now, whatever `refresh` says. Rejects if the check fails. */
+  async refresh(): Promise<SnapshotInfo> {
+    try {
+      return await this.#refresh();
+    } catch (error) {
+      throw fromCaller(error, DopbaseSDK.prototype.refresh);
+    }
+  }
+
+  async #load(options: LoadOptions): Promise<this> {
     this.#assertOpen();
     const waitUntil = options.waitUntil ?? discoverWaitUntil();
     if (!this.#state) {
@@ -162,11 +188,10 @@ export class DopbaseSDK<T extends Record<string, unknown> = Values> {
     return this;
   }
 
-  /** Checks with the server now, whatever `refresh` says. Rejects if the check fails. */
-  async refresh(): Promise<SnapshotInfo> {
+  async #refresh(): Promise<SnapshotInfo> {
     this.#assertOpen();
     if (!this.#state) {
-      await this.load();
+      await this.#load({});
     } else {
       if (this.#stopped) throw this.#stopped;
       await this.#revalidate();
@@ -177,28 +202,31 @@ export class DopbaseSDK<T extends Record<string, unknown> = Values> {
   }
 
   get<K extends keyof T & string>(key: K): T[K] {
-    return this.#loaded()[key];
+    return this.#loaded(DopbaseSDK.prototype.get)[key];
   }
 
   /** Like `get`, but throws when the key isn't set. */
   require<K extends keyof T & string>(key: K): NonNullable<T[K]> {
-    const value = this.#loaded()[key];
+    const value = this.#loaded(DopbaseSDK.prototype.require)[key];
     if (value === undefined || value === null) {
-      throw new DopbaseError(`${key} isn't set in ${this.#state!.snapshot.environment}.`, {
-        code: 'KEY_MISSING',
-      });
+      throw fromCaller(
+        new DopbaseError(`${key} isn't set in "${this.#state!.snapshot.environment}".`, {
+          code: 'KEY_MISSING',
+        }),
+        DopbaseSDK.prototype.require,
+      );
     }
     return value as NonNullable<T[K]>;
   }
 
   has(key: string): boolean {
-    const values = this.#loaded() as Record<string, unknown>;
+    const values = this.#loaded(DopbaseSDK.prototype.has) as Record<string, unknown>;
     return Object.hasOwn(values, key) && values[key] !== undefined;
   }
 
   /** Every value, frozen. With a `schema`, the parsed output. */
   getAll(): Readonly<T> {
-    return this.#loaded();
+    return this.#loaded(DopbaseSDK.prototype.getAll);
   }
 
   /** Where the values came from and how fresh they are. `undefined` before the first `load()`. */
@@ -230,7 +258,10 @@ export class DopbaseSDK<T extends Record<string, unknown> = Values> {
         ? { keys: undefined, listener: keysOrListener }
         : { keys: new Set(keysOrListener), listener: maybeListener! };
     if (typeof subscription.listener !== 'function') {
-      throw new DopbaseConfigError('onChange needs a listener function.');
+      throw fromCaller(
+        new DopbaseConfigError('onChange needs a listener function.'),
+        DopbaseSDK.prototype.onChange,
+      );
     }
     this.#changeListeners.add(subscription);
     return () => this.#changeListeners.delete(subscription);
@@ -327,7 +358,7 @@ export class DopbaseSDK<T extends Record<string, unknown> = Values> {
         throw error;
       }
       this.#warn(
-        `${(error as Error).message} Using the stored copy from ${new Date(stored.fetchedAt).toISOString()}.`,
+        `${(error as Error).message}\nUsing the stored copy from ${new Date(stored.fetchedAt).toISOString()}.`,
       );
       this.#stale = true;
       // So 'ttl' serves this copy for one ttl instead of waiting out the outage again.
@@ -423,9 +454,7 @@ export class DopbaseSDK<T extends Record<string, unknown> = Values> {
       const issues = await validateSchema(this.#schema, raw);
       if (issues.issues) {
         const error = new DopbaseValidationError(
-          `Secrets in ${state.snapshot.environment} don't match the schema: ${issues.issues
-            .map((issue) => (issue.key ? `${issue.key}: ${issue.message}` : issue.message))
-            .join('; ')}.`,
+          schemaMessage(state.snapshot.environment, issues.issues),
           issues.issues,
           { code: 'SCHEMA_INVALID' },
         );
@@ -565,9 +594,10 @@ export class DopbaseSDK<T extends Record<string, unknown> = Values> {
   }
 
   #emitError(error: unknown): void {
+    // A background failure has no app call to point at, and its frames are SDK internals.
     const wrapped =
       error instanceof DopbaseError
-        ? error
+        ? withoutFrames(error)
         : new DopbaseError(String((error as Error)?.message ?? error), {
             code: 'UNEXPECTED',
             cause: error,
@@ -585,11 +615,14 @@ export class DopbaseSDK<T extends Record<string, unknown> = Values> {
     }
   }
 
-  #loaded(): Readonly<T> {
+  #loaded(caller: Caller): Readonly<T> {
     if (!this.#values) {
-      throw new DopbaseError('Secrets are not loaded yet. Call await sdk.load() first.', {
-        code: 'NOT_LOADED',
-      });
+      throw fromCaller(
+        new DopbaseError('Secrets are not loaded yet. Call await sdk.load() first.', {
+          code: 'NOT_LOADED',
+        }),
+        caller,
+      );
     }
     return this.#values;
   }
@@ -614,6 +647,16 @@ async function validateSchema<T>(
       return typeof key === 'string' ? { key, message: issue.message } : { message: issue.message };
     }),
   };
+}
+
+/** One line per issue, so a long list stays readable. Never includes values. */
+function schemaMessage(environment: string, issues: DopbaseIssue[]): string {
+  const one = issues.length === 1;
+  return [
+    `${issues.length} ${one ? 'secret' : 'secrets'} in "${environment}" ${one ? "doesn't" : "don't"} match your schema:`,
+    ...issues.map((issue) => `  - ${issue.key ? `${issue.key}: ` : ''}${issue.message}`),
+    `Fix ${one ? 'it' : 'them'} in Dopbase, or change the schema.`,
+  ].join('\n');
 }
 
 function unrefTimer(timer: ReturnType<typeof setTimeout>): void {

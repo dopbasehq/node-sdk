@@ -8,7 +8,13 @@ const shared = {
   target: 'es2022',
   define: { __VERSION__: JSON.stringify(version) },
   external: ['cloudflare:workers', /^node:/],
-  sourcemap: true,
+  // Published minified and without source maps: the package stays small, and
+  // runtimes don't print SDK source above an error.
+  minify: true,
+  sourcemap: false,
+  // Minifying renames classes, and Node prints the class name next to `name`
+  // (`m [DopbaseValidationError]`). Keep the real names.
+  keepNames: true,
   treeshake: true,
   removeNodeProtocol: false,
 } as const;
