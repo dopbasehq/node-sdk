@@ -54,7 +54,8 @@
     "dist",
     "README.md",
     "CHANGELOG.md",
-    "LICENSE"
+    "LICENSE",
+    "NOTICE"
   ],
   "main": "./dist/node.cjs",
   "module": "./dist/node.js",
