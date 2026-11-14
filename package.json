@@ -113,7 +113,7 @@
     "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsup && node scripts/check-edge.mjs",
+    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsup && node scripts/check-edge.mjs && node scripts/check-dist.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
